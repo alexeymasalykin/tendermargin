@@ -2,9 +2,8 @@ import { cookies } from "next/headers"
 import { MetricCard } from "@/components/projects/MetricCard"
 import { MarginChart } from "@/components/result/MarginChart"
 import { ResultTable } from "@/components/result/ResultTable"
+import { ExportMarginButton } from "@/components/result/ExportMarginButton"
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs"
-import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
 import { formatMoney, formatPercent } from "@/lib/utils"
 import type { MarginResult } from "@/types/api"
 
@@ -32,13 +31,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
       ]} />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold">Результат расчёта</h1>
-        {margin && (
-          <a href={`/api/v1/projects/${id}/margin/export`} download>
-            <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />Экспорт Excel
-            </Button>
-          </a>
-        )}
+        {margin && <ExportMarginButton projectId={id} />}
       </div>
 
       {!margin ? (

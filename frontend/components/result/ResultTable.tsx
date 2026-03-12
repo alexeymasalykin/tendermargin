@@ -1,3 +1,5 @@
+"use client"
+
 import { createColumnHelper } from "@tanstack/react-table"
 import { DataTable } from "@/components/tables/DataTable"
 import { Badge } from "@/components/ui/badge"

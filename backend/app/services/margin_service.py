@@ -146,12 +146,19 @@ async def export_margin_excel(
         "red": "DC2626",
         "loss": "7F1D1D",
     }
+    STATUS_LABELS = {
+        "green": "Норма",
+        "yellow": "Внимание",
+        "red": "Риск",
+        "loss": "Убыток",
+    }
 
     for idx, item in enumerate(result.items, start=1):
         ws.append([
             idx, item.name, item.code, item.item_type, item.unit,
             item.quantity, item.ceiling_price, item.cost_price,
-            item.margin, f"{item.margin_pct:.2f}%", item.status,
+            item.margin, f"{item.margin_pct:.2f}%",
+            STATUS_LABELS.get(item.status, item.status),
         ])
         status_cell = ws.cell(row=ws.max_row, column=11)
         color = STATUS_COLORS.get(item.status, "64748B")
