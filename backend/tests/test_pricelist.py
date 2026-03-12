@@ -239,3 +239,11 @@ async def test_update_matches(auth_client: AsyncClient, project_id: str, db_sess
     data = resp.json()
     assert data[0]["supplier_price"] == 95.0
     assert data[0]["status"] == "accepted"
+
+    # Verify price was saved to supplier library
+    from app.models.pricelist import SupplierPriceLibrary as _SPL
+    lib_res = await db_session.execute(_sel(_SPL))
+    lib_entries = lib_res.scalars().all()
+    assert len(lib_entries) == 1
+    assert lib_entries[0].normalized_name == "кирпич"
+    assert float(lib_entries[0].price) == 95.0

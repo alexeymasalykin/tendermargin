@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.material import Material
-from app.models.pricelist import PricelistMatch, PricelistUpload
+from app.models.pricelist import PricelistMatch, PricelistUpload, SupplierPriceLibrary
 from app.schemas.pricelist import (
     PricelistMatchOut,
     PricelistMatchPartial,
@@ -99,6 +99,7 @@ async def _run_mapping_task(
     task_id: str,
     project_id: uuid.UUID,
     structure: PricelistStructure,
+    user_id: uuid.UUID,
     db: AsyncSession,
 ) -> None:
     task = _TASK_REGISTRY[task_id]
@@ -119,6 +120,27 @@ async def _run_mapping_task(
             raise ValueError("No pricelist upload found")
 
         task.total = len(materials)
+
+        # Library lookup: find cached prices for materials (skip LLM for known prices)
+        lib_result = await db.execute(
+            select(SupplierPriceLibrary).where(SupplierPriceLibrary.user_id == user_id)
+        )
+        library = {(e.normalized_name, e.unit): e for e in lib_result.scalars().all()}
+
+        # Split materials: cached vs need-LLM
+        cached_matches: dict[int, dict] = {}
+        materials_for_llm: list[tuple[int, object]] = []  # (original_index, material)
+        for i, mat in enumerate(materials):
+            norm = _normalize_material_name(mat.name)
+            lib_entry = library.get((norm, mat.unit or ""))
+            if lib_entry:
+                cached_matches[i] = {
+                    "supplier_name": lib_entry.supplier_name,
+                    "supplier_price": float(lib_entry.price),
+                    "confidence": 1.0,
+                }
+            else:
+                materials_for_llm.append((i, mat))
 
         try:
             from core.materials import MaterialRow
@@ -146,23 +168,26 @@ async def _run_mapping_task(
                 None, read_pricelist_data, pl_upload.file_path, core_structure,
             )
 
-            # Convert ORM Material → core MaterialRow
+            # Convert only non-cached materials → MaterialRow for LLM
             material_rows = [
                 MaterialRow(
-                    index=i,
+                    index=orig_idx,
                     name=m.name,
                     unit=m.unit or "",
                     quantity=float(m.quantity),
                     smeta_total=float(m.smeta_total),
                     codes=m.codes or [],
                 )
-                for i, m in enumerate(materials)
+                for orig_idx, m in materials_for_llm
             ]
 
-            # Run LLM mapping
-            matches_raw = await loop.run_in_executor(
-                None, map_materials, material_rows, pricelist_items,
-            )
+            # Run LLM mapping only for uncached materials
+            if material_rows and pricelist_items:
+                matches_raw = await loop.run_in_executor(
+                    None, map_materials, material_rows, pricelist_items,
+                )
+            else:
+                matches_raw = []
 
             # Group by material_index, keep best confidence per material
             best_by_material: dict[int, dict] = {}
@@ -175,6 +200,9 @@ async def _run_mapping_task(
                 }
                 if idx not in best_by_material or mm.confidence > best_by_material[idx]["confidence"]:
                     best_by_material[idx] = entry
+
+            # Merge: cached (confidence=1.0) + LLM results
+            best_by_material.update(cached_matches)
 
             # Build ordered list aligned with materials
             matches_dicts = [
@@ -231,6 +259,7 @@ async def _run_mapping_task(
 def start_mapping_task(
     project_id: uuid.UUID,
     structure: PricelistStructure,
+    user_id: uuid.UUID,
     db: AsyncSession,
 ) -> str:
     task_id = str(uuid.uuid4())
@@ -238,7 +267,7 @@ def start_mapping_task(
         status="running", progress=0, total=0, matches=[]
     )
     asyncio.ensure_future(
-        _run_mapping_task(task_id, project_id, structure, db)
+        _run_mapping_task(task_id, project_id, structure, user_id, db)
     )
     return task_id
 
@@ -262,9 +291,18 @@ async def list_pricelist_matches(
     return [PricelistMatchOut.model_validate(m) for m in matches]
 
 
+def _normalize_material_name(name: str) -> str:
+    """Normalize material name for library lookup: lowercase, collapse whitespace."""
+    import re
+    s = name.lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
 async def update_matches(
     project_id: uuid.UUID,
     updates: List[dict],
+    user_id: uuid.UUID,
     db: AsyncSession,
 ) -> List[PricelistMatchOut]:
     result = await db.execute(
@@ -272,7 +310,15 @@ async def update_matches(
     )
     matches_map = {str(m.id): m for m in result.scalars().all()}
 
+    # Pre-load materials for library sync
+    mat_result = await db.execute(
+        select(Material).where(Material.project_id == project_id)
+    )
+    materials_by_id = {m.id: m for m in mat_result.scalars().all()}
+
     updated = []
+    library_entries: list[tuple[str, str, str, float]] = []  # (norm_name, supplier_name, unit, price)
+
     for upd in updates:
         match = matches_map.get(str(upd["id"]))
         if match is None:
@@ -285,6 +331,41 @@ async def update_matches(
             match.status = upd["status"]
         match.updated_at = datetime.now(timezone.utc)
         updated.append(match)
+
+        # Collect accepted matches for library sync
+        if match.status == "accepted" and match.supplier_price is not None:
+            mat = materials_by_id.get(match.material_id)
+            if mat:
+                library_entries.append((
+                    _normalize_material_name(mat.name),
+                    match.supplier_name or "",
+                    mat.unit or "",
+                    float(match.supplier_price),
+                ))
+
+    # Upsert accepted prices into user's supplier library
+    for norm_name, supplier_name, unit, price in library_entries:
+        existing = await db.execute(
+            select(SupplierPriceLibrary).where(
+                SupplierPriceLibrary.user_id == user_id,
+                SupplierPriceLibrary.normalized_name == norm_name,
+                SupplierPriceLibrary.unit == unit,
+            )
+        )
+        lib_entry = existing.scalar_one_or_none()
+        if lib_entry:
+            lib_entry.supplier_name = supplier_name
+            lib_entry.price = price
+            lib_entry.updated_at = datetime.now(timezone.utc)
+        else:
+            db.add(SupplierPriceLibrary(
+                user_id=user_id,
+                normalized_name=norm_name,
+                supplier_name=supplier_name,
+                unit=unit,
+                price=price,
+                source=f"pricelist",
+            ))
 
     await db.commit()
     return [PricelistMatchOut.model_validate(m) for m in updated]

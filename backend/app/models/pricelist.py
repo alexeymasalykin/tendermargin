@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import String, Text, DateTime, ForeignKey, Numeric, func, CheckConstraint, JSON
+from sqlalchemy import String, Text, DateTime, ForeignKey, Numeric, func, CheckConstraint, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -40,3 +40,20 @@ class PricelistMatch(Base):
 
     project: Mapped["Project"] = relationship(back_populates="pricelist_matches")  # type: ignore[name-defined]
     material: Mapped["Material"] = relationship(back_populates="pricelist_matches")  # type: ignore[name-defined]
+
+
+class SupplierPriceLibrary(Base):
+    """User-level supplier price cache. Stores confirmed prices to skip LLM on repeat materials."""
+    __tablename__ = "supplier_price_library"
+    __table_args__ = (
+        UniqueConstraint("user_id", "normalized_name", "unit", name="uq_supplier_lib_user_name_unit"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    normalized_name: Mapped[str] = mapped_column(Text, nullable=False)
+    supplier_name: Mapped[str] = mapped_column(Text, nullable=False)
+    unit: Mapped[str] = mapped_column(String(50), default="")
+    price: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    source: Mapped[str] = mapped_column(String(255), default="")  # e.g. "pricelist: filename.xlsx" or "manual"
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
