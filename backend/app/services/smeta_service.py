@@ -18,11 +18,12 @@ from app.models.smeta import SmetaItem, SmetaUpload
 try:
     from core.parser_excel import parse_excel
     from core.parser_pdf import parse_pdf
-    from core.materials import aggregate_materials
+    from core.materials import aggregate_materials, _normalize_unit
 except ImportError:
     parse_excel = None  # type: ignore
     parse_pdf = None  # type: ignore
     aggregate_materials = None  # type: ignore
+    _normalize_unit = None  # type: ignore
 
 ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".pdf"}
 MAGIC_SIGNATURES = {
@@ -87,14 +88,17 @@ async def process_smeta_upload(
 
     items_to_add = []
     for item in parse_result.items:
+        raw_unit = item.unit or ""
+        raw_qty = float(item.quantity or 0)
+        norm_unit, norm_qty = _normalize_unit(raw_unit, raw_qty)
         smeta_item = SmetaItem(
             project_id=project_id,
             number=item.number,
             code=item.code or "",
             name=item.name,
-            unit=item.unit or "",
-            quantity=float(item.quantity or 0),
-            unit_price=float(item.unit_price or 0),
+            unit=norm_unit,
+            quantity=norm_qty,
+            unit_price=float(item.total_price / norm_qty) if norm_qty else 0,
             total_price=float(item.total_price or 0),
             item_type=item.item_type or "unknown",
             section=item.section or "",
