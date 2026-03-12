@@ -121,28 +121,75 @@ async def _run_mapping_task(
         task.total = len(materials)
 
         try:
-            from core.pricelist_mapper import map_materials
-            loop = asyncio.get_event_loop()
-            matches_raw = await loop.run_in_executor(
-                None,
+            from core.materials import MaterialRow
+            from core.pricelist_mapper import (
+                PricelistStructure as CoreStructure,
                 map_materials,
-                pl_upload.file_path,
-                [m.name for m in materials],
-                {
-                    "name_column": structure.name_column,
-                    "unit_column": structure.unit_column,
-                    "price_column": structure.price_column,
-                },
+                read_pricelist_data,
             )
+
+            # Convert detected structure to core dataclass
+            # core_detect() returns header_row/name_col/price_col which land in extra
+            ex = structure.extra or {}
+            core_structure = CoreStructure(
+                header_row=int(ex.get("header_row", 0)),
+                name_col=int(ex.get("name_col", 0)),
+                price_col=int(ex.get("price_col", 0)),
+                unit_col=int(ex["unit_col"]) if ex.get("unit_col") is not None else None,
+                vat_included=bool(ex.get("vat_included", True)),
+                vat_rate=float(ex.get("vat_rate", 20)),
+            )
+
+            # Parse pricelist Excel into list[dict]
+            loop = asyncio.get_event_loop()
+            pricelist_items = await loop.run_in_executor(
+                None, read_pricelist_data, pl_upload.file_path, core_structure,
+            )
+
+            # Convert ORM Material → core MaterialRow
+            material_rows = [
+                MaterialRow(
+                    index=i,
+                    name=m.name,
+                    unit=m.unit or "",
+                    quantity=float(m.quantity),
+                    smeta_total=float(m.smeta_total),
+                    codes=m.codes or [],
+                )
+                for i, m in enumerate(materials)
+            ]
+
+            # Run LLM mapping
+            matches_raw = await loop.run_in_executor(
+                None, map_materials, material_rows, pricelist_items,
+            )
+
+            # Group by material_index, keep best confidence per material
+            best_by_material: dict[int, dict] = {}
+            for mm in matches_raw:
+                idx = mm.material_index
+                entry = {
+                    "supplier_name": mm.supplier_name,
+                    "supplier_price": mm.supplier_price,
+                    "confidence": mm.confidence,
+                }
+                if idx not in best_by_material or mm.confidence > best_by_material[idx]["confidence"]:
+                    best_by_material[idx] = entry
+
+            # Build ordered list aligned with materials
+            matches_dicts = [
+                best_by_material.get(i, {"supplier_name": None, "supplier_price": None, "confidence": 0.0})
+                for i in range(len(materials))
+            ]
         except ImportError:
-            matches_raw = [{"supplier_name": None, "supplier_price": None, "confidence": 0.0}
-                           for _ in materials]
+            matches_dicts = [{"supplier_name": None, "supplier_price": None, "confidence": 0.0}
+                             for _ in materials]
 
         await db.execute(
             delete(PricelistMatch).where(PricelistMatch.project_id == project_id)
         )
 
-        for i, (mat, match) in enumerate(zip(materials, matches_raw)):
+        for i, (mat, match) in enumerate(zip(materials, matches_dicts)):
             confidence = float(match.get("confidence", 0))
             status = "accepted" if confidence >= 0.85 else "pending"
             pm = PricelistMatch(
