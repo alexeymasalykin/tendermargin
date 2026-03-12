@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://tendermargin:changeme@localhost:5432/tendermargin"
     jwt_secret: str = "dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 15
+    access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
     openrouter_api_key: str = ""

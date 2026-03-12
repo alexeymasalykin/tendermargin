@@ -20,7 +20,7 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
     response.set_cookie(
         key="access_token",
         value=access_token,
-        max_age=60 * 15,  # 15 min
+        max_age=60 * 60,  # 1 hour
         **COOKIE_OPTS,
     )
     response.set_cookie(
