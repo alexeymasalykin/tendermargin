@@ -29,7 +29,7 @@ export function MappingTable({ projectId, initial }: { projectId: string; initia
       <table className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID материала</th>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Материал</th>
             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Найдено в прайсе</th>
             <th className="px-4 py-3 text-center font-medium text-muted-foreground">Совпадение</th>
             <th className="px-4 py-3 text-right font-medium text-muted-foreground">Цена, ₽</th>
@@ -40,7 +40,7 @@ export function MappingTable({ projectId, initial }: { projectId: string; initia
             const Icon = CONF_ICON(m.confidence)
             return (
               <tr key={m.id} className="hover:bg-muted/20">
-                <td className="px-4 py-3 font-medium font-mono text-xs text-muted-foreground">{m.material_id.slice(0, 8)}…</td>
+                <td className="px-4 py-3 font-medium text-sm">{m.material_name}</td>
                 <td className="px-4 py-3 text-muted-foreground">{m.supplier_name ?? "—"}</td>
                 <td className="px-4 py-3">
                   <span className={cn("flex items-center justify-center gap-1 font-mono text-xs", CONF_COLOR(m.confidence))}>

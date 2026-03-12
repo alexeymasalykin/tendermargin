@@ -93,7 +93,7 @@ export const api = {
         body: JSON.stringify({ structure }),
       }),
     mapStatus: (projectId: string, task_id: string) =>
-      request<{ status: string; progress: number; total: number; matches: unknown[] }>(
+      request<{ status: string; progress: number; total: number; matches: unknown[]; error?: string }>(
         `/projects/${projectId}/pricelist/map/status?task_id=${task_id}`
       ),
     matches: (projectId: string) =>

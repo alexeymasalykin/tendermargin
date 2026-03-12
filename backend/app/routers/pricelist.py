@@ -69,7 +69,7 @@ async def start_map(
     db: AsyncSession = Depends(get_db),
 ) -> PricelistMapStarted:
     await get_project_or_404(project_id, current_user.id, db)
-    task_id = start_mapping_task(project_id, body.structure, current_user.id, db)
+    task_id = start_mapping_task(project_id, body.structure, current_user.id)
     return PricelistMapStarted(task_id=task_id)
 
 

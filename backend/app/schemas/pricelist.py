@@ -47,13 +47,12 @@ class PricelistMapStatus(BaseModel):
 class PricelistMatchOut(BaseModel):
     id: uuid.UUID
     material_id: uuid.UUID
+    material_name: str = ""
     supplier_name: Optional[str] = None
     supplier_price: Optional[float] = None
     confidence: Optional[float] = None
     status: str
     updated_at: datetime
-
-    model_config = {"from_attributes": True}
 
 
 class PricelistMatchUpdate(BaseModel):

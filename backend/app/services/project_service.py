@@ -124,7 +124,10 @@ async def build_progress(project_id: uuid.UUID, db: AsyncSession) -> ProjectProg
 
     # --- Pricelist ---
     pricelist_result = await db.execute(
-        select(PricelistUpload).where(PricelistUpload.project_id == project_id)
+        select(PricelistUpload)
+        .where(PricelistUpload.project_id == project_id)
+        .order_by(PricelistUpload.created_at.desc())
+        .limit(1)
     )
     pricelist_upload = pricelist_result.scalar_one_or_none()
 

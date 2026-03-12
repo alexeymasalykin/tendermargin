@@ -64,6 +64,7 @@ export interface ContractorPrice {
 export interface PricelistMatch {
   id: string
   material_id: string
+  material_name: string
   supplier_name: string | null
   supplier_price: number | null
   confidence: number | null

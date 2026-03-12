@@ -60,6 +60,10 @@ export function PricelistWizard({ projectId }: { projectId: string }) {
             setMapping(false)
             setStep("map")
             router.refresh()
+          } else if (s.status === "failed") {
+            clearInterval(poll)
+            setMapping(false)
+            setError(s.error || "Ошибка маппинга")
           }
         } catch {
           clearInterval(poll)
@@ -105,9 +109,9 @@ export function PricelistWizard({ projectId }: { projectId: string }) {
           "border-border hover:border-primary/50"
         )}>
           <Upload className="w-8 h-8 text-muted-foreground mb-3" />
-          <p className="text-sm font-medium">Загрузите прайс поставщика (.xlsx)</p>
+          <p className="text-sm font-medium">Загрузите прайс поставщика (.xlsx, .pdf)</p>
           <input
-            type="file" accept=".xlsx,.xls" className="sr-only"
+            type="file" accept=".xlsx,.xls,.pdf" className="sr-only"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
             disabled={uploading}
           />
@@ -120,10 +124,23 @@ export function PricelistWizard({ projectId }: { projectId: string }) {
           {detecting && <p className="text-sm text-muted-foreground">Анализ структуры...</p>}
           {structure && !detecting && (
             <>
-              <p className="text-sm font-medium">Определена структура прайса:</p>
-              <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto">
-                {JSON.stringify(structure, null, 2)}
-              </pre>
+              <div className="bg-muted/50 border rounded-lg p-4 space-y-1">
+                <p className="text-sm font-medium mb-2">Структура прайса определена</p>
+                <p className="text-sm text-muted-foreground">
+                  Колонка наименования: <span className="font-mono font-medium text-foreground">{(structure.extra?.name_col ?? structure.name_column ?? 0) + 1}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Колонка цены: <span className="font-mono font-medium text-foreground">{(structure.extra?.price_col ?? structure.price_column ?? 0) + 1}</span>
+                </p>
+                {(structure.extra?.unit_col != null || structure.unit_column != null) && (
+                  <p className="text-sm text-muted-foreground">
+                    Колонка ед. изм.: <span className="font-mono font-medium text-foreground">{(structure.extra?.unit_col ?? structure.unit_column ?? 0) + 1}</span>
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  НДС: <span className="font-medium text-foreground">{structure.extra?.vat_included ? "включён" : `не включён (${structure.extra?.vat_rate ?? 20}%)`}</span>
+                </p>
+              </div>
               <Button onClick={handleMap} disabled={mapping}>
                 {mapping ? "Запуск маппинга..." : "Запустить маппинг"}
               </Button>
