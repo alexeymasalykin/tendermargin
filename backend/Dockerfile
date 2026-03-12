@@ -18,8 +18,8 @@ RUN useradd --system --uid 1001 --create-home appuser
 
 COPY --chown=appuser:appuser . .
 
-# Copy existing core/ modules from parent context
-# (handled by docker compose build context)
+# Copy core/ modules from additional build context
+COPY --from=core --chown=appuser:appuser / /app/core/
 
 RUN mkdir -p /app/uploads && chown appuser:appuser /app/uploads && \
     chmod +x /app/entrypoint.sh
