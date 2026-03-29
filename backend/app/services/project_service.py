@@ -16,7 +16,6 @@ from app.schemas.project import (
     MarginProgress,
     MaterialsProgress,
     PricelistProgress,
-    ProjectDetail,
     ProjectProgress,
     SmetaProgress,
 )

@@ -4,7 +4,7 @@ import asyncio
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import delete, select
@@ -391,7 +391,7 @@ async def update_matches(
                 supplier_name=supplier_name,
                 unit=unit,
                 price=price,
-                source=f"pricelist",
+                source="pricelist",
             ))
 
     await db.commit()

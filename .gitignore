@@ -35,6 +35,13 @@ venv/
 # Streamlit legacy
 .streamlit/
 
+# Uploads and data
+uploads/
+data/
+exports/
+samples/
+test-results/
+
 # Misc
 *.log
 .claude/

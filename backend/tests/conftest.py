@@ -4,7 +4,6 @@ import os
 os.environ.setdefault("JWT_SECRET", "test-secret-for-tests-only")
 os.environ["UPLOAD_DIR"] = "/tmp/tendermargin_test"
 
-import pytest
 import pytest_asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
