@@ -18,6 +18,13 @@ from app.services.smeta_service import process_smeta_upload
 
 router = APIRouter(tags=["smeta"])
 
+SORT_COLUMNS = {
+    "number": SmetaItem.number,
+    "name": SmetaItem.name,
+    "total_price": SmetaItem.total_price,
+    "item_type": SmetaItem.item_type,
+}
+
 
 @router.post("/projects/{project_id}/smeta/upload", response_model=SmetaUploadResult)
 async def upload_smeta(
@@ -52,7 +59,7 @@ async def get_smeta_items(
     )
     total = count_result.scalar_one()
 
-    sort_col = getattr(SmetaItem, sort or "number", SmetaItem.number)
+    sort_col = SORT_COLUMNS.get(sort or "number", SmetaItem.number)
     query = (
         base_query.order_by(sort_col)
         .offset((page - 1) * page_size)

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://tendermargin:changeme@localhost:5432/tendermargin"
     jwt_secret: str
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
+    access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]

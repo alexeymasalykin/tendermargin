@@ -27,6 +27,7 @@ class ContractorPriceLibrary(Base):
 class ContractorPrice(Base):
     """Per-project contractor prices, copied from library on smeta upload."""
     __tablename__ = "contractor_prices"
+    __table_args__ = (UniqueConstraint("project_id", "smeta_item_id", name="uq_contractor_price_project_item"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), index=True)

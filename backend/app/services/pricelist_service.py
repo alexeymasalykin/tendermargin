@@ -10,6 +10,8 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+
 from app.config import settings
 from app.models.material import Material
 from app.models.pricelist import PricelistMatch, PricelistUpload, SupplierPriceLibrary
@@ -20,6 +22,8 @@ from app.schemas.pricelist import (
     PricelistStructure,
     PricelistUploadResult,
 )
+
+logger = logging.getLogger(__name__)
 
 # In-memory task registry: { task_id: PricelistMapStatus }
 _TASK_REGISTRY: Dict[str, PricelistMapStatus] = {}
@@ -91,7 +95,11 @@ async def detect_structure(
         structure_data = core_detect(pl_upload.file_path)
         if not isinstance(structure_data, dict):
             structure_data = vars(structure_data)
-    except (ImportError, Exception):
+    except ImportError:
+        logger.warning("core.pricelist_mapper not available, skipping structure detection")
+        structure_data = {}
+    except Exception as e:
+        logger.error("Failed to detect pricelist structure: %s", e, exc_info=True)
         structure_data = {}
 
     pl_upload.structure_json = structure_data

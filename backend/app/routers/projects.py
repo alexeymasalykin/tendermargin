@@ -32,7 +32,7 @@ async def list_projects(
         select(Project)
         .where(
             Project.user_id == current_user.id,
-            Project.deleted_at.is_(None),
+            Project.active(),
         )
         .order_by(Project.created_at.desc())
     )
