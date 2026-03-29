@@ -3,14 +3,12 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-engine = create_async_engine(
-    settings.database_url,
-    echo=False,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,
-    pool_recycle=3600,
+_pool_opts = (
+    {"pool_size": 5, "max_overflow": 10, "pool_pre_ping": True, "pool_recycle": 3600}
+    if "postgresql" in settings.database_url
+    else {}
 )
+engine = create_async_engine(settings.database_url, echo=False, **_pool_opts)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
