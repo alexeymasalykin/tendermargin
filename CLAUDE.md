@@ -94,12 +94,12 @@ docker compose logs -f nextjs        # Watch logs
 File: `.env` (root). Copy from `.env.example`.
 
 ```
-DATABASE_URL=postgresql+asyncpg://tendermargin:changeme@postgres:5432/tendermargin
 DB_USER=tendermargin
-DB_PASSWORD=changeme
+DB_PASSWORD=          # Set a strong password
 DB_NAME=tendermargin
-JWT_SECRET=<random-string-min-32-chars>
-OPENROUTER_API_KEY=sk-or-v1-...
+DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+JWT_SECRET=           # Generate: openssl rand -hex 32
+OPENROUTER_API_KEY=   # Get from https://openrouter.ai/keys
 ```
 
 **Never commit `.env`** — only `.env.example` with placeholder values.
@@ -176,7 +176,7 @@ Base: `/api/v1`
 - Nginx config: `/etc/nginx/sites-enabled/tendermargin`
 - Docker containers: `nextjs` (3001→3000), `fastapi` (8000→8000), `postgres` (5432)
 - Alembic migrations run automatically on container start (`entrypoint.sh`)
-- Production: `http://155.212.147.192`
+- Production: `http://YOUR_SERVER_IP`
 
 ## Testing
 
