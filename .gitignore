@@ -45,3 +45,5 @@ test-results/
 # Misc
 *.log
 .claude/
+CLAUDE.md
+BEFORE_GITHUB.md
