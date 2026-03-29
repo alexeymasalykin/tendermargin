@@ -1,30 +1,30 @@
 # TenderMargin
 
-A SaaS margin calculator for construction tenders. Parses cost estimates (GRAND-Smeta Excel/PDF), matches them against contractor and supplier prices using AI mapping, and calculates per-item margins.
+SaaS-калькулятор маржинальности строительных тендеров. Парсит сметы (ГРАНД-Смета Excel/PDF), сопоставляет с ценами подрядчиков и поставщиков через AI-маппинг, рассчитывает маржу по каждой позиции.
 
-## Features
+## Возможности
 
-- **Estimate parsing** — Upload GRAND-Smeta files (Excel/PDF), auto-extract line items
-- **Contractor pricing** — Manual entry or bulk upload of contractor price lists
-- **AI-powered matching** — Map supplier prices to estimate items via OpenRouter LLM
-- **Margin calculation** — Per-item ceiling vs. cost analysis with color-coded status
-- **Excel export** — Download detailed margin reports
+- **Парсинг смет** — загрузка файлов ГРАНД-Сметы (Excel/PDF), автоматическое извлечение позиций
+- **Расценки подрядчика** — ручной ввод или массовая загрузка прайс-листа
+- **AI-сопоставление** — маппинг позиций поставщика к позициям сметы через OpenRouter LLM
+- **Расчёт маржи** — анализ «потолок vs себестоимость» по каждой позиции с цветовой индикацией
+- **Экспорт в Excel** — детальный отчёт по маржинальности
 
-## Tech Stack
+## Стек
 
-| Layer | Technology |
-|-------|-----------|
+| Слой | Технологии |
+|------|-----------|
 | Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui |
 | Backend | FastAPI, SQLAlchemy (async), Pydantic |
-| Database | PostgreSQL 16 |
+| БД | PostgreSQL 16 |
 | AI | OpenRouter API (GPT-4o / Claude) |
-| Deploy | Docker Compose, Nginx |
+| Деплой | Docker Compose, Nginx |
 
-## Architecture
+## Архитектура
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Browser    │────▶│   Nginx :80  │     │              │
+│   Браузер    │────▶│   Nginx :80  │     │              │
 │             │◀────│  (reverse    │     │  PostgreSQL  │
 └─────────────┘     │   proxy)     │     │    :5432     │
                     └──────┬───────┘     └──────▲───────┘
@@ -44,75 +44,75 @@ A SaaS margin calculator for construction tenders. Parses cost estimates (GRAND-
                                         └────────────┘
 ```
 
-### Data Flow
+### Поток данных
 
-1. **Upload** — User uploads GRAND-Smeta file (Excel/PDF)
-2. **Parse** — Backend extracts line items, materials, work codes
-3. **Price** — Contractor fills unit prices; supplier pricelist uploaded
-4. **Match** — AI maps supplier items to estimate materials (OpenRouter)
-5. **Calculate** — Margin = tender ceiling − contractor cost per item
-6. **Export** — Color-coded Excel report with margin analysis
+1. **Загрузка** — пользователь загружает файл ГРАНД-Сметы (Excel/PDF)
+2. **Парсинг** — backend извлекает позиции, материалы, коды работ
+3. **Расценки** — подрядчик заполняет цены; загружается прайс поставщика
+4. **Сопоставление** — AI маппит позиции поставщика к материалам сметы (OpenRouter)
+5. **Расчёт** — маржа = потолок тендера − себестоимость подрядчика по каждой позиции
+6. **Экспорт** — Excel-отчёт с цветовой индикацией маржинальности
 
-## Quick Start
+## Быстрый старт
 
 ```bash
-# 1. Clone
+# 1. Клонировать
 git clone https://github.com/alex2061/tendermargin.git
 cd tendermargin
 
-# 2. Configure
+# 2. Настроить
 cp .env.example .env
-# Edit .env — set DB_PASSWORD, JWT_SECRET, OPENROUTER_API_KEY
+# Отредактировать .env — задать DB_PASSWORD, JWT_SECRET, OPENROUTER_API_KEY
 
-# 3. Run
+# 3. Запустить
 docker compose up --build -d
 
 # Frontend: http://localhost:3001
 # API docs: http://localhost:8000/api/docs
 ```
 
-## Project Structure
+## Структура проекта
 
 ```
-backend/         FastAPI application
+backend/         FastAPI-приложение
   app/
-    routers/     HTTP endpoints
-    services/    Business logic
-    models/      SQLAlchemy models (async)
-    schemas/     Pydantic request/response DTOs
-  alembic/       Database migrations
+    routers/     HTTP-эндпоинты
+    services/    Бизнес-логика
+    models/      SQLAlchemy-модели (async)
+    schemas/     Pydantic request/response DTO
+  alembic/       Миграции БД
   tests/         pytest (async, in-memory SQLite)
 
-frontend/        Next.js 16 application
-  app/           App Router pages
-  components/    React components (shadcn/ui)
-  lib/api/       API client modules
-  types/         TypeScript interfaces
+frontend/        Next.js 16 приложение
+  app/           App Router — страницы
+  components/    React-компоненты (shadcn/ui)
+  lib/api/       API-клиент по модулям
+  types/         TypeScript-интерфейсы
 
-core/            Python parsers (Excel/PDF)
+core/            Python-парсеры (Excel/PDF)
 ```
 
-## Development
+## Разработка
 
 ```bash
 # Backend
 cd backend
 pip install -r requirements.txt
-python -m pytest tests/ -v        # Run tests
-uvicorn app.main:app --reload     # Dev server :8000
+python -m pytest tests/ -v        # Тесты (48 тестов, 72% coverage)
+uvicorn app.main:app --reload     # Dev-сервер :8000
 
 # Frontend
 cd frontend
 npm install
-npm run dev                       # Dev server :3000
-npm run build                     # Production build
+npm run dev                       # Dev-сервер :3000
+npm run build                     # Production-сборка
 npm test                          # Vitest
 ```
 
-## API Documentation
+## API
 
-Interactive API docs available at `/api/docs` (Swagger UI) when the backend is running.
+Интерактивная документация доступна по адресу `/api/docs` (Swagger UI) при запущенном backend.
 
-## License
+## Лицензия
 
 MIT
