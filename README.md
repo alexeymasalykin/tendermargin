@@ -1,5 +1,7 @@
 # TenderMargin
 
+[![CI](https://github.com/alexeymasalykin/tendermargin/actions/workflows/ci.yml/badge.svg)](https://github.com/alexeymasalykin/tendermargin/actions/workflows/ci.yml)
+
 SaaS-калькулятор маржинальности строительных тендеров. Парсит сметы (ГРАНД-Смета Excel/PDF), сопоставляет с ценами подрядчиков и поставщиков через AI-маппинг, рассчитывает маржу по каждой позиции.
 
 ## Возможности
