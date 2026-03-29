@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient
 
 
-async def register(client: AsyncClient, email: str = "test@example.com", password: str = "password123", name: str = "Test User"):
+async def register(client: AsyncClient, email: str = "test@example.com", password: str = "TestPass1!", name: str = "Test User"):
     return await client.post("/api/v1/auth/register", json={"email": email, "password": password, "name": name})
 
 
@@ -23,7 +23,7 @@ class TestRegister:
         assert "already registered" in r.json()["detail"].lower()
 
     async def test_register_invalid_email(self, client: AsyncClient):
-        r = await client.post("/api/v1/auth/register", json={"email": "not-an-email", "password": "password123", "name": "Test"})
+        r = await client.post("/api/v1/auth/register", json={"email": "not-an-email", "password": "TestPass1!", "name": "Test"})
         assert r.status_code == 422
 
     async def test_register_short_password(self, client: AsyncClient):
@@ -31,14 +31,14 @@ class TestRegister:
         assert r.status_code == 422
 
     async def test_register_short_name(self, client: AsyncClient):
-        r = await client.post("/api/v1/auth/register", json={"email": "x@x.com", "password": "password123", "name": "X"})
+        r = await client.post("/api/v1/auth/register", json={"email": "x@x.com", "password": "TestPass1!", "name": "X"})
         assert r.status_code == 422
 
 
 class TestLogin:
     async def test_login_success(self, client: AsyncClient):
         await register(client)
-        r = await client.post("/api/v1/auth/login", json={"email": "test@example.com", "password": "password123"})
+        r = await client.post("/api/v1/auth/login", json={"email": "test@example.com", "password": "TestPass1!"})
         assert r.status_code == 200
         assert "access_token" in r.cookies
         assert "refresh_token" in r.cookies
@@ -49,7 +49,7 @@ class TestLogin:
         assert r.status_code == 401
 
     async def test_login_unknown_email(self, client: AsyncClient):
-        r = await client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "password123"})
+        r = await client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "TestPass1!"})
         assert r.status_code == 401
 
 

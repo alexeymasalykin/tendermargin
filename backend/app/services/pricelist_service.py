@@ -44,18 +44,26 @@ async def upload_pricelist(
     _validate_pricelist_file(upload.filename or "")
     content = await upload.read()
 
+    max_size = settings.max_upload_size_mb * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size: {settings.max_upload_size_mb}MB",
+        )
+
     # Clean up previous pricelist data for this project
     await db.execute(delete(PricelistMatch).where(PricelistMatch.project_id == project_id))
     await db.execute(delete(PricelistUpload).where(PricelistUpload.project_id == project_id))
 
     upload_dir = Path(settings.upload_dir) / str(project_id) / "pricelist"
     upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = upload_dir / (upload.filename or "pricelist.xlsx")
+    safe_name = Path(upload.filename or "pricelist.xlsx").name
+    file_path = upload_dir / safe_name
     file_path.write_bytes(content)
 
     pl_upload = PricelistUpload(
         project_id=project_id,
-        filename=upload.filename or "pricelist.xlsx",
+        filename=safe_name,
         file_path=str(file_path),
     )
     db.add(pl_upload)

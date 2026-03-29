@@ -63,18 +63,27 @@ async def process_smeta_upload(
     db: AsyncSession,
 ) -> dict:
     content = await upload.read()
+
+    max_size = settings.max_upload_size_mb * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size: {settings.max_upload_size_mb}MB",
+        )
+
     _validate_file(upload.filename or "", content)
 
     await _cascade_delete_smeta(project_id, db)
 
     upload_dir = Path(settings.upload_dir) / str(project_id)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = upload_dir / (upload.filename or "smeta")
+    safe_filename = Path(upload.filename).name if upload.filename else "smeta"
+    file_path = upload_dir / safe_filename
     file_path.write_bytes(content)
 
     smeta_upload = SmetaUpload(
         project_id=project_id,
-        filename=upload.filename or "smeta",
+        filename=safe_filename,
         file_path=str(file_path),
     )
     db.add(smeta_upload)

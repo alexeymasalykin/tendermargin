@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
     openrouter_api_key: str = ""
     upload_dir: str = "/app/uploads"
     max_upload_size_mb: int = 200

@@ -11,7 +11,11 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.main import app
+from app.deps import limiter
 from app.database import Base, get_db
+
+# Disable rate limiting in tests to avoid cross-test interference
+limiter.enabled = False
 
 # Use in-memory SQLite for tests (async)
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
@@ -54,7 +58,7 @@ async def auth_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, N
     app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         await c.post("/api/v1/auth/register", json={
-            "email": "user@test.com", "password": "password123", "name": "Test User"
+            "email": "user@test.com", "password": "TestPass1!", "name": "Test User"
         })
         yield c
     app.dependency_overrides.clear()
@@ -68,7 +72,7 @@ async def other_auth_client(db_session: AsyncSession) -> AsyncGenerator[AsyncCli
     app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         await c.post("/api/v1/auth/register", json={
-            "email": "other@test.com", "password": "password123", "name": "Other User"
+            "email": "other@test.com", "password": "TestPass1!", "name": "Other User"
         })
         yield c
     app.dependency_overrides.clear()
