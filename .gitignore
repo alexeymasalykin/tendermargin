@@ -48,3 +48,13 @@ test-results/
 CLAUDE.md
 BEFORE_GITHUB.md
 PROMPT.md
+
+# Legacy Streamlit app
+Главная.py
+pages/
+
+# Dev notes
+claude-code-guide.md
+feature_price_upload_mapping.md
+nginx.conf
+nginx-tendermargin.conf
