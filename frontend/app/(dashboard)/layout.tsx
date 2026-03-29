@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { TopBar } from "@/components/layout/TopBar"
 import { Sidebar } from "@/components/layout/Sidebar"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 async function getUser() {
   const cookieStore = await cookies()
@@ -25,7 +26,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <TopBar userName={user.name} />
       <div className="flex flex-1">
         <Sidebar />
-        <main id="main-content" className="flex-1 p-4 sm:p-6 overflow-auto">{children}</main>
+        <main id="main-content" className="flex-1 p-4 sm:p-6 overflow-auto">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   )

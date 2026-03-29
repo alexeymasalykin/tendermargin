@@ -40,8 +40,8 @@ const columns = [
   col.accessor("status", {
     header: "Статус",
     cell: i => (
-      <Badge variant={STATUS_VARIANT[i.getValue() as MarginStatus] ?? "outline"}>
-        {STATUS_LABELS[i.getValue() as MarginStatus] ?? i.getValue()}
+      <Badge variant={STATUS_VARIANT[i.getValue()] ?? "outline"}>
+        {STATUS_LABELS[i.getValue()] ?? i.getValue()}
       </Badge>
     ),
   }),
