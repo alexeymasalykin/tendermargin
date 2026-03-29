@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,8 @@ except ImportError:
     parse_pdf = None  # type: ignore
     aggregate_materials = None  # type: ignore
     _normalize_unit = None  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".pdf"}
 MAGIC_SIGNATURES = {
@@ -61,6 +64,7 @@ async def process_smeta_upload(
     upload: UploadFile,
     db: AsyncSession,
 ) -> dict:
+    """Upload and save file, return upload_id. Parsing happens in background."""
     content = await upload.read()
 
     max_size = settings.max_upload_size_mb * 1024 * 1024
@@ -86,81 +90,108 @@ async def process_smeta_upload(
         file_path=str(file_path),
     )
     db.add(smeta_upload)
-    await db.flush()
-
-    ext = Path(upload.filename or "").suffix.lower()
-    if ext == ".pdf":
-        parse_result = parse_pdf(str(file_path))
-    else:
-        parse_result = parse_excel(str(file_path))
-
-    items_to_add = []
-    for item in parse_result.items:
-        raw_unit = item.unit or ""
-        raw_qty = float(item.quantity or 0)
-        norm_unit, norm_qty = _normalize_unit(raw_unit, raw_qty)
-        smeta_item = SmetaItem(
-            project_id=project_id,
-            number=item.number,
-            code=item.code or "",
-            name=item.name,
-            unit=norm_unit,
-            quantity=norm_qty,
-            unit_price=float(item.total_price / norm_qty) if norm_qty else 0,
-            total_price=float(item.total_price or 0),
-            item_type=item.item_type or "unknown",
-            section=item.section or "",
-        )
-        items_to_add.append(smeta_item)
-
-    db.add_all(items_to_add)
-    await db.flush()
-
-    smeta_upload.parsed_at = datetime.now(timezone.utc)
-
-    material_rows = aggregate_materials(parse_result.items)
-    materials_to_add = []
-    for mat in material_rows:
-        material = Material(
-            project_id=project_id,
-            name=mat.name,
-            unit=mat.unit or "",
-            quantity=float(mat.quantity or 0),
-            smeta_total=float(mat.smeta_total or 0),
-            codes=mat.codes or [],
-        )
-        materials_to_add.append(material)
-    db.add_all(materials_to_add)
-
-    work_items = [i for i in items_to_add if i.item_type == "work"]
-    if work_items:
-        fsnb_codes = [i.code for i in work_items if i.code]
-        library_result = await db.execute(
-            select(ContractorPriceLibrary).where(
-                ContractorPriceLibrary.user_id == user_id,
-                ContractorPriceLibrary.fsnb_code.in_(fsnb_codes),
-            )
-        )
-        library_map: dict[str, ContractorPriceLibrary] = {
-            lib.fsnb_code: lib for lib in library_result.scalars().all()
-        }
-        contractor_prices = []
-        for item in work_items:
-            lib_entry = library_map.get(item.code or "")
-            contractor_prices.append(
-                ContractorPrice(
-                    project_id=project_id,
-                    smeta_item_id=item.id,
-                    fsnb_code=item.code or "",
-                    name=item.name,
-                    unit=item.unit or "",
-                    price=lib_entry.price if lib_entry else None,
-                )
-            )
-        db.add_all(contractor_prices)
-
     await db.commit()
+    await db.refresh(smeta_upload)
+
     return {
-        "item_count": len(items_to_add),
-        "total_sum": sum(float(i.total_price) for i in items_to_add),
+        "upload_id": str(smeta_upload.id),
+        "filename": safe_filename,
     }
+
+
+async def parse_smeta_background(
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    upload_id: uuid.UUID,
+    file_path: str,
+) -> None:
+    """Parse uploaded smeta file in background. Creates its own DB session."""
+    from app.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(SmetaUpload).where(SmetaUpload.id == upload_id)
+            )
+            smeta_upload = result.scalar_one_or_none()
+            if smeta_upload is None:
+                logger.error("SmetaUpload %s not found for background parse", upload_id)
+                return
+
+            ext = Path(file_path).suffix.lower()
+            if ext == ".pdf":
+                parse_result = parse_pdf(file_path)
+            else:
+                parse_result = parse_excel(file_path)
+
+            items_to_add = []
+            for item in parse_result.items:
+                raw_unit = item.unit or ""
+                raw_qty = float(item.quantity or 0)
+                norm_unit, norm_qty = _normalize_unit(raw_unit, raw_qty)
+                smeta_item = SmetaItem(
+                    project_id=project_id,
+                    number=item.number,
+                    code=item.code or "",
+                    name=item.name,
+                    unit=norm_unit,
+                    quantity=norm_qty,
+                    unit_price=float(item.total_price / norm_qty) if norm_qty else 0,
+                    total_price=float(item.total_price or 0),
+                    item_type=item.item_type or "unknown",
+                    section=item.section or "",
+                )
+                items_to_add.append(smeta_item)
+
+            db.add_all(items_to_add)
+            await db.flush()
+
+            smeta_upload.parsed_at = datetime.now(timezone.utc)
+
+            material_rows = aggregate_materials(parse_result.items)
+            materials_to_add = []
+            for mat in material_rows:
+                material = Material(
+                    project_id=project_id,
+                    name=mat.name,
+                    unit=mat.unit or "",
+                    quantity=float(mat.quantity or 0),
+                    smeta_total=float(mat.smeta_total or 0),
+                    codes=mat.codes or [],
+                )
+                materials_to_add.append(material)
+            db.add_all(materials_to_add)
+
+            work_items = [i for i in items_to_add if i.item_type == "work"]
+            if work_items:
+                fsnb_codes = [i.code for i in work_items if i.code]
+                library_result = await db.execute(
+                    select(ContractorPriceLibrary).where(
+                        ContractorPriceLibrary.user_id == user_id,
+                        ContractorPriceLibrary.fsnb_code.in_(fsnb_codes),
+                    )
+                )
+                library_map: dict[str, ContractorPriceLibrary] = {
+                    lib.fsnb_code: lib for lib in library_result.scalars().all()
+                }
+                contractor_prices = []
+                for item in work_items:
+                    lib_entry = library_map.get(item.code or "")
+                    contractor_prices.append(
+                        ContractorPrice(
+                            project_id=project_id,
+                            smeta_item_id=item.id,
+                            fsnb_code=item.code or "",
+                            name=item.name,
+                            unit=item.unit or "",
+                            price=lib_entry.price if lib_entry else None,
+                        )
+                    )
+                db.add_all(contractor_prices)
+
+            await db.commit()
+            logger.info("Parsed smeta %s: %d items", upload_id, len(items_to_add))
+
+        except Exception as e:
+            logger.error("Background smeta parse failed for %s: %s", upload_id, e, exc_info=True)
+            await db.rollback()

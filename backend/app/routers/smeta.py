@@ -4,7 +4,9 @@ import math
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, UploadFile
+from pathlib import Path
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +16,8 @@ from app.models.smeta import SmetaItem
 from app.models.user import User
 from app.schemas.smeta import SmetaItemOut, SmetaItemsPage, SmetaUploadResult
 from app.services.project_service import get_project_or_404
-from app.services.smeta_service import process_smeta_upload
+from app.config import settings
+from app.services.smeta_service import parse_smeta_background, process_smeta_upload
 
 router = APIRouter(tags=["smeta"])
 
@@ -30,11 +33,19 @@ SORT_COLUMNS = {
 async def upload_smeta(
     project_id: uuid.UUID,
     file: UploadFile,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> SmetaUploadResult:
     await get_project_or_404(project_id, current_user.id, db)
     result = await process_smeta_upload(project_id, current_user.id, file, db)
+    background_tasks.add_task(
+        parse_smeta_background,
+        project_id,
+        current_user.id,
+        uuid.UUID(result["upload_id"]),
+        str(Path(settings.upload_dir) / str(project_id) / result["filename"]),
+    )
     return SmetaUploadResult(**result)
 
 

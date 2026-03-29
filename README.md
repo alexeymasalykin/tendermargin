@@ -20,6 +20,39 @@ A SaaS margin calculator for construction tenders. Parses cost estimates (GRAND-
 | AI | OpenRouter API (GPT-4o / Claude) |
 | Deploy | Docker Compose, Nginx |
 
+## Architecture
+
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Browser    │────▶│   Nginx :80  │     │              │
+│             │◀────│  (reverse    │     │  PostgreSQL  │
+└─────────────┘     │   proxy)     │     │    :5432     │
+                    └──────┬───────┘     └──────▲───────┘
+                           │                    │
+                    ┌──────▼───────┐     ┌──────┴───────┐
+                    │  Next.js     │     │   FastAPI    │
+                    │  :3001       │────▶│   :8000      │
+                    │              │     │              │
+                    │  App Router  │     │  SQLAlchemy  │
+                    │  shadcn/ui   │     │  Pydantic    │
+                    │  TypeScript  │     │  JWT Auth    │
+                    └──────────────┘     └──────────────┘
+                                              │
+                                        ┌─────▼──────┐
+                                        │ OpenRouter  │
+                                        │  (AI API)   │
+                                        └────────────┘
+```
+
+### Data Flow
+
+1. **Upload** — User uploads GRAND-Smeta file (Excel/PDF)
+2. **Parse** — Backend extracts line items, materials, work codes
+3. **Price** — Contractor fills unit prices; supplier pricelist uploaded
+4. **Match** — AI maps supplier items to estimate materials (OpenRouter)
+5. **Calculate** — Margin = tender ceiling − contractor cost per item
+6. **Export** — Color-coded Excel report with margin analysis
+
 ## Quick Start
 
 ```bash

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel
 
 
 class SmetaUploadResult(BaseModel):
-    item_count: int
-    total_sum: float
+    upload_id: str
+    filename: str
 
 
 class SmetaItemOut(BaseModel):
